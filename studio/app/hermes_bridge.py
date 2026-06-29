@@ -52,9 +52,13 @@ class HermesBridge:
 
     async def chat(self, prompt: str, session_id: Optional[str] = None,
                    job_id: str = "chat") -> JobResult:
-        """One-shot chat. Bounded by HERMES_TIMEOUT_S."""
+        """One-shot chat. Bounded by HERMES_TIMEOUT_S.
+
+        --cli forces the classic REPL path for `-q` oneshots; without it a
+        TUI-default config tries to launch the Ink UI (needs npm) and fails.
+        """
         t0 = time.time()
-        cmd = [self.bin, "chat", "-q", prompt, "--quiet"]
+        cmd = [self.bin, "chat", "-q", prompt, "--cli", "--quiet"]
         if session_id:
             cmd += ["--source", f"gw:{session_id}"]
         rc, out, err = await _run(cmd, HERMES_TIMEOUT_S)
