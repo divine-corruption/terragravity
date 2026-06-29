@@ -36,7 +36,12 @@ export async function updateJob(
     r2_key: string;
   }>,
 ): Promise<void> {
-  const fields = Object.keys(patch);
+  // Skip keys whose value is undefined — including them would bind `undefined`
+  // into the prepared statement, which D1 rejects with D1_TYPE_ERROR. A caller
+  // passing `undefined` means "leave this column unchanged".
+  const fields = Object.keys(patch).filter(
+    (f) => (patch as Record<string, unknown>)[f] !== undefined,
+  );
   if (fields.length === 0) return;
   const set = fields.map((f) => `${f} = ?`).join(", ");
   const values = fields.map((f) => (patch as Record<string, unknown>)[f]);

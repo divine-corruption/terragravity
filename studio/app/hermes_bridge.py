@@ -21,6 +21,31 @@ from .models import JobResult
 HERMES_BIN = os.environ.get("HERMES_BIN", "hermes")
 HERMES_TIMEOUT_S = int(os.environ.get("HERMES_TIMEOUT_S", "600"))
 
+
+def _safe_cwd() -> str:
+    """Return a guaranteed-valid working directory for spawned subprocesses.
+
+    The studio's own cwd can be deleted out from under a long-running process
+    (e.g. the project dir gets re-cloned/replaced). A subprocess inheriting that
+    dead cwd crashes Hermes at startup on os.getcwd()
+    ("getcwd: cannot access parent directories"). We therefore pin an explicit,
+    existing cwd. Order: HERMES_BRIDGE_CWD env → process cwd if still valid →
+    $HOME → /tmp.
+    """
+    candidates = [
+        os.environ.get("HERMES_BRIDGE_CWD"),
+    ]
+    try:
+        candidates.append(os.getcwd())
+    except OSError:
+        # Current cwd was deleted — os.getcwd() itself raises here.
+        pass
+    candidates += [os.environ.get("HOME"), "/tmp"]
+    for c in candidates:
+        if c and os.path.isdir(c):
+            return c
+    return "/tmp"
+
 import re as _re
 
 # Strip ANSI escape sequences and known setup/postinstall banner lines that some
@@ -53,12 +78,16 @@ def hermes_available() -> bool:
 
 
 async def _run(cmd: list[str], timeout: int, cwd: Optional[str] = None) -> tuple[int, str, str]:
-    """Run a subprocess, return (rc, stdout, stderr). Never raises on timeout."""
+    """Run a subprocess, return (rc, stdout, stderr). Never raises on timeout.
+
+    cwd defaults to a guaranteed-valid directory (see _safe_cwd) so a deleted
+    studio working directory can't crash the spawned process at startup.
+    """
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        cwd=cwd,
+        cwd=cwd or _safe_cwd(),
     )
     try:
         out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
@@ -89,6 +118,7 @@ class HermesBridge:
                 out = subprocess.run(
                     [self.bin, "chat", "--help"],
                     capture_output=True, text=True, timeout=15,
+                    cwd=_safe_cwd(),
                 )
                 self._cli_supported = "--cli" in (out.stdout + out.stderr)
             except Exception:
