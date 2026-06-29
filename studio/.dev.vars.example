@@ -1,0 +1,15 @@
+# Terragravity Studio — env template. Copy to .dev.vars and fill in real values.
+# .dev.vars is gitignored; this example file is committed.
+
+# Temporal Cloud (durable agent workflows). Leave unset to disable durable mode
+# and fall back to inline execution.
+TEMPORAL_ADDRESS=your-namespace.acct.tmprl.cloud:7233
+TEMPORAL_NAMESPACE=your-namespace.acct
+TEMPORAL_API_KEY=
+TEMPORAL_TASK_QUEUE=terragravity-agent
+
+# HMAC shared secret with the Worker (required in production).
+GATEWAY_HMAC_SECRET=
+
+# Dev-only: bypass HMAC verification for local testing. NEVER set in production.
+# GATEWAY_DEV_INSECURE=1

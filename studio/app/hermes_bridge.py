@@ -21,6 +21,31 @@ from .models import JobResult
 HERMES_BIN = os.environ.get("HERMES_BIN", "hermes")
 HERMES_TIMEOUT_S = int(os.environ.get("HERMES_TIMEOUT_S", "600"))
 
+import re as _re
+
+# Strip ANSI escape sequences and known setup/postinstall banner lines that some
+# Hermes builds print to stdout before the actual answer.
+_ANSI = _re.compile(r"\x1b\[[0-9;]*m")
+_BANNER_PREFIXES = ("✓ ", "→ ", "✗ ", "Detected:", "Checking ", "Node.js")
+
+
+def _clean_output(raw: str) -> str:
+    text = _ANSI.sub("", raw)
+    lines = text.splitlines()
+    # Drop leading banner/diagnostic lines; keep everything from the first
+    # "real" content line onward (preserves multi-line answers).
+    start = 0
+    for i, ln in enumerate(lines):
+        s = ln.strip()
+        if not s:
+            start = i + 1
+            continue
+        if s.startswith(_BANNER_PREFIXES):
+            start = i + 1
+            continue
+        break
+    return "\n".join(lines[start:]).strip()
+
 
 def hermes_available() -> bool:
     """True if the hermes binary is on PATH (used by /health)."""
@@ -49,16 +74,41 @@ class HermesBridge:
 
     def __init__(self, bin_path: str = HERMES_BIN):
         self.bin = bin_path
+        self._cli_supported: Optional[bool] = None
+
+    def _supports_cli(self) -> bool:
+        """Return True if `hermes chat` advertises a `--cli` flag.
+
+        Cached after first probe. Newer builds default to the classic REPL and
+        dropped `--cli`; older/TUI-default builds need it. Detecting avoids
+        hardcoding a flag that crashes one build or the other.
+        """
+        if self._cli_supported is None:
+            try:
+                import subprocess
+                out = subprocess.run(
+                    [self.bin, "chat", "--help"],
+                    capture_output=True, text=True, timeout=15,
+                )
+                self._cli_supported = "--cli" in (out.stdout + out.stderr)
+            except Exception:
+                self._cli_supported = False
+        return self._cli_supported
 
     async def chat(self, prompt: str, session_id: Optional[str] = None,
                    job_id: str = "chat") -> JobResult:
         """One-shot chat. Bounded by HERMES_TIMEOUT_S.
 
-        --cli forces the classic REPL path for `-q` oneshots; without it a
-        TUI-default config tries to launch the Ink UI (needs npm) and fails.
+        We invoke the classic REPL oneshot (`hermes chat -q ... --quiet`). The
+        classic REPL is the default; the TUI is opt-in via `--tui`, so we simply
+        never request the TUI. Older builds exposed an explicit `--cli` flag —
+        if (and only if) this binary advertises it, we pass it for safety on
+        configs whose default interface is the TUI. Detection is cached.
         """
         t0 = time.time()
-        cmd = [self.bin, "chat", "-q", prompt, "--cli", "--quiet"]
+        cmd = [self.bin, "chat", "-q", prompt, "-Q"]
+        if self._supports_cli():
+            cmd.append("--cli")
         if session_id:
             cmd += ["--source", f"gw:{session_id}"]
         rc, out, err = await _run(cmd, HERMES_TIMEOUT_S)
@@ -67,7 +117,7 @@ class HermesBridge:
             return JobResult(job_id=job_id, status="error",
                              error=err.strip() or f"hermes exited {rc}", exec_ms=exec_ms)
         return JobResult(job_id=job_id, status="done",
-                         response=out.strip(), exec_ms=exec_ms)
+                         response=_clean_output(out), exec_ms=exec_ms)
 
     async def execute(self, prompt: str, job_id: str,
                       session_id: Optional[str] = None) -> JobResult:

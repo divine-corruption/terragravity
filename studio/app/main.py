@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI
 
 from .auth import verify_signature
 from .hermes_bridge import HermesBridge, hermes_available
+from .temporal_client import durable_enabled, get_agent_job, start_agent_job
 from .models import (
     CancelRequest,
     ChatRequest,
@@ -56,6 +57,17 @@ async def chat(req: ChatRequest) -> JobResult:
 
 @app.post("/execute", response_model=JobResult, dependencies=[Depends(verify_signature)])
 async def execute(req: ExecuteRequest) -> JobResult:
+    """Long agent task. Durable via Temporal when configured, else inline.
+
+    Durable mode returns immediately with status=running and a workflow_id;
+    the client polls /status. Inline mode (no Temporal) runs to completion.
+    """
+    cfg = durable_enabled()
+    if cfg is not None:
+        return await start_agent_job(
+            cfg, job_id=req.job_id, prompt=req.prompt, session_id=req.session_id
+        )
+    # Fallback: inline execution with in-process registry.
     JOBS[req.job_id] = JobResult(job_id=req.job_id, status="running")
     res = await bridge.execute(req.prompt, job_id=req.job_id, session_id=req.session_id)
     JOBS[req.job_id] = res
@@ -64,6 +76,9 @@ async def execute(req: ExecuteRequest) -> JobResult:
 
 @app.post("/status", response_model=JobResult, dependencies=[Depends(verify_signature)])
 async def status(req: StatusRequest) -> JobResult:
+    cfg = durable_enabled()
+    if cfg is not None and req.job_id:
+        return await get_agent_job(cfg, req.job_id)
     if req.job_id and req.job_id in JOBS:
         return JOBS[req.job_id]
     return JobResult(job_id=req.job_id or "unknown", status="error", error="job not found")
