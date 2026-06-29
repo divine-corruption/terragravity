@@ -9,8 +9,16 @@ import { authMiddleware } from "./middleware";
 import { createJob, getJob, listLogs, uuid, writeLog } from "./db/d1";
 import { callStudio } from "./lib/upstream";
 import type { Env, JobMessage, JobType } from "./lib/types";
+import { web } from "./web";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// ── Public install / landing pages (no auth) ─────────────────────────
+//   GET /            → landing page (OS auto-detect + install one-liner)
+//   GET /install.sh  → macOS/Linux installer
+//   GET /install.ps1 → Windows installer
+//   GET /launcher.py → the tg launcher client
+app.route("/", web);
 
 // ── Public health (no auth) ──────────────────────────────────────────
 app.get("/health", async (c) => {

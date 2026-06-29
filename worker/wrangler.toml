@@ -4,6 +4,16 @@ compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "7d8a3b05393bfae3119b0415cde47747"
 
+# ── Custom domains (zone: terragravity.cloud) ────────────────────────
+# Landing page + install one-liners are served from the apex/www;
+# the `tg` launcher talks to the gateway at api.terragravity.cloud.
+# Custom Domains auto-provision DNS + edge SSL for the Worker.
+routes = [
+  { pattern = "terragravity.cloud", custom_domain = true },
+  { pattern = "www.terragravity.cloud", custom_domain = true },
+  { pattern = "api.terragravity.cloud", custom_domain = true },
+]
+
 # ── D1 ───────────────────────────────────────────────────────────────
 [[d1_databases]]
 binding = "DB"
@@ -34,7 +44,7 @@ dead_letter_queue = "terragravity-jobs-dlq"
 
 # ── Vars (non-secret). Secrets go via `wrangler secret put`. ─────────
 [vars]
-STUDIO_URL = "https://studio.example.com"   # Cloudflare Tunnel hostname
+STUDIO_URL = "https://studio.terragravity.cloud"   # Cloudflare Tunnel hostname
 R2_URL_TTL_S = "900"
 RATE_LIMIT_PER_MIN = "60"
 

@@ -1,15 +1,20 @@
-# cloudflared tunnel config template.
-# Fill in <TUNNEL_UUID> and the credentials file path from:
+# cloudflared tunnel config for the Terragravity Studio hop.
+#
+# Recreate on a fresh host with:
 #   cloudflared tunnel create terragravity-studio
-# then run:
+#   cloudflared tunnel route dns terragravity-studio studio.terragravity.cloud
+# then fill <TUNNEL_UUID> + credentials path below and run:
 #   cloudflared tunnel --config this-file run terragravity-studio
+#
+# The tunnel UUID and credentials file are host-specific and NOT committed.
+# Replace <TUNNEL_UUID> with the value printed by `cloudflared tunnel create`.
 
 tunnel: <TUNNEL_UUID>
-credentials-file: /root/.cloudflared/<TUNNEL_UUID>.json
+credentials-file: <HOME>/.cloudflared/<TUNNEL_UUID>.json
 
 ingress:
-  # Public hostname (must be a DNS route on your Cloudflare zone) -> local FastAPI
-  - hostname: studio.yourdomain.com
+  # Public hostname (DNS route on the terragravity.cloud zone) -> local FastAPI
+  - hostname: studio.terragravity.cloud
     service: http://127.0.0.1:8088
   # Catch-all (required last rule)
   - service: http_status:404

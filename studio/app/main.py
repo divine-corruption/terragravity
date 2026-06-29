@@ -49,6 +49,14 @@ async def health() -> HealthResponse:
     )
 
 
+# The edge Worker probes upstream health with a POST (its callStudio helper
+# always POSTs). Mirror the GET handler so the tunnel health check succeeds.
+# Intentionally unsigned — health carries no sensitive data or side effects.
+@app.post("/health", response_model=HealthResponse)
+async def health_post() -> HealthResponse:
+    return await health()
+
+
 @app.post("/chat", response_model=JobResult, dependencies=[Depends(verify_signature)])
 async def chat(req: ChatRequest) -> JobResult:
     res = await bridge.chat(req.prompt, session_id=req.session_id)
