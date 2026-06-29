@@ -1,0 +1,15 @@
+# cloudflared tunnel config template.
+# Fill in <TUNNEL_UUID> and the credentials file path from:
+#   cloudflared tunnel create terragravity-studio
+# then run:
+#   cloudflared tunnel --config this-file run terragravity-studio
+
+tunnel: <TUNNEL_UUID>
+credentials-file: /root/.cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  # Public hostname (must be a DNS route on your Cloudflare zone) -> local FastAPI
+  - hostname: studio.yourdomain.com
+    service: http://127.0.0.1:8088
+  # Catch-all (required last rule)
+  - service: http_status:404
