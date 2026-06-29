@@ -1,0 +1,43 @@
+name = "terragravity-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ── D1 ───────────────────────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "terragravity"
+database_id = "PLACEHOLDER_SET_BY_WRANGLER"   # filled by `wrangler d1 create`
+migrations_dir = "src/db/migrations"
+
+# ── KV (rate limits, nonce/replay cache, jwt denylist) ───────────────
+[[kv_namespaces]]
+binding = "KV"
+id = "PLACEHOLDER_KV_ID"
+
+# ── R2 (generated artifacts) ─────────────────────────────────────────
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "terragravity-artifacts"
+
+# ── Queues (paid plan) ───────────────────────────────────────────────
+[[queues.producers]]
+binding = "JOBS_QUEUE"
+queue = "terragravity-jobs"
+
+[[queues.consumers]]
+queue = "terragravity-jobs"
+max_batch_size = 5
+max_retries = 3
+dead_letter_queue = "terragravity-jobs-dlq"
+
+# ── Vars (non-secret). Secrets go via `wrangler secret put`. ─────────
+[vars]
+STUDIO_URL = "https://studio.example.com"   # Cloudflare Tunnel hostname
+R2_URL_TTL_S = "900"
+RATE_LIMIT_PER_MIN = "60"
+
+# Secrets (set with: wrangler secret put NAME):
+#   JWT_SECRET
+#   API_KEY_SALT
+#   GATEWAY_HMAC_SECRET   (must match Studio env)
