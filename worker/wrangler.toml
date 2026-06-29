@@ -2,18 +2,19 @@ name = "terragravity-worker"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
+account_id = "7d8a3b05393bfae3119b0415cde47747"
 
 # ── D1 ───────────────────────────────────────────────────────────────
 [[d1_databases]]
 binding = "DB"
 database_name = "terragravity"
-database_id = "PLACEHOLDER_SET_BY_WRANGLER"   # filled by `wrangler d1 create`
+database_id = "42daea15-2cee-40ab-ab29-04ba31b76d86"
 migrations_dir = "src/db/migrations"
 
 # ── KV (rate limits, nonce/replay cache, jwt denylist) ───────────────
 [[kv_namespaces]]
 binding = "KV"
-id = "PLACEHOLDER_KV_ID"
+id = "c966718f23fa4980b13eced3af84a5c5"
 
 # ── R2 (generated artifacts) ─────────────────────────────────────────
 [[r2_buckets]]
